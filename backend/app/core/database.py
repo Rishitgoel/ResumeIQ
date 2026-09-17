@@ -1,22 +1,36 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import declarative_base, sessionmaker, DeclarativeBase
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy import create_engine
 from app.core.config import settings
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
-is_async_sqlite = "sqlite" in settings.DATABASE_URL
-async_connect_args = {"check_same_thread": False} if is_async_sqlite else {}
+def _mask_url(url: str) -> str:
+    """Mask password in URL for safe logging."""
+    return re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", url)
 
-async_engine = create_async_engine(
-    settings.async_database_url,
-    echo=False,
-    future=True,
-    pool_pre_ping=not is_async_sqlite,
-    connect_args=async_connect_args,
-)
+# --- Async engine ---
+_async_url = settings.async_database_url
+print(f"[DB] async engine URL: {_mask_url(_async_url)}", flush=True)
+
+try:
+    is_async_sqlite = "sqlite" in _async_url
+    async_connect_args = {"check_same_thread": False} if is_async_sqlite else {}
+    async_engine = create_async_engine(
+        _async_url,
+        echo=False,
+        future=True,
+        pool_pre_ping=not is_async_sqlite,
+        connect_args=async_connect_args,
+    )
+except Exception as e:
+    raise RuntimeError(
+        f"[DB] Failed to create async engine. URL was: '{_mask_url(_async_url)}'. "
+        f"Set DATABASE_URL correctly in Railway Variables. Error: {e}"
+    ) from e
 
 AsyncSessionLocal = async_sessionmaker(
     bind=async_engine,
@@ -26,15 +40,24 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
-is_sync_sqlite = "sqlite" in settings.SYNC_DATABASE_URL
-sync_connect_args = {"check_same_thread": False} if is_sync_sqlite else {}
+# --- Sync engine ---
+_sync_url = settings.sync_database_url
+print(f"[DB] sync engine URL: {_mask_url(_sync_url)}", flush=True)
 
-sync_engine = create_engine(
-    settings.sync_database_url,
-    echo=False,
-    pool_pre_ping=not is_sync_sqlite,
-    connect_args=sync_connect_args,
-)
+try:
+    is_sync_sqlite = "sqlite" in _sync_url
+    sync_connect_args = {"check_same_thread": False} if is_sync_sqlite else {}
+    sync_engine = create_engine(
+        _sync_url,
+        echo=False,
+        pool_pre_ping=not is_sync_sqlite,
+        connect_args=sync_connect_args,
+    )
+except Exception as e:
+    raise RuntimeError(
+        f"[DB] Failed to create sync engine. URL was: '{_mask_url(_sync_url)}'. "
+        f"Set SYNC_DATABASE_URL correctly in Railway Variables. Error: {e}"
+    ) from e
 
 SyncSessionLocal = sessionmaker(
     bind=sync_engine,
@@ -55,3 +78,4 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise e
         finally:
             await session.close()
+
