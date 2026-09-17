@@ -1,6 +1,5 @@
 from typing import List, Dict, Any, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import AnyHttpUrl, field_validator
 import os
 
 class Settings(BaseSettings):
@@ -58,15 +57,12 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
     MAX_FILE_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
 
-    # CORS
-    BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "https://*.vercel.app",
-        "https://*.up.railway.app",
-    ]
+    # CORS — set FRONTEND_URL in Railway to restrict origins in production
+    FRONTEND_URL: str = ""
+    ALLOW_ALL_ORIGINS: bool = True  # set False and configure FRONTEND_URL to restrict
+
+    # Port (Railway injects PORT automatically)
+    PORT: int = 8000
 
     # Default Match Scoring Weights
     WEIGHT_REQUIRED_SKILLS: float = 0.40

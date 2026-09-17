@@ -15,11 +15,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: connect to Redis and verify DB tables
     logger.info("Initializing ResumeIQ backend service...")
     await redis_client.connect()
 
-    # Create tables if not present (useful for development & test runs)
     try:
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -29,7 +27,6 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: clean up connections
     logger.info("Shutting down ResumeIQ backend service...")
     await redis_client.close()
     await async_engine.dispose()
@@ -45,15 +42,25 @@ app = FastAPI(
 )
 
 # Configure CORS
+if settings.ALLOW_ALL_ORIGINS:
+    cors_origins = ["*"]
+    cors_credentials = False  # credentials not allowed with wildcard
+else:
+    cors_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        settings.FRONTEND_URL,
+    ]
+    cors_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Custom Exception Handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
@@ -64,7 +71,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         },
     )
 
-# Health Check Endpoints
 @app.get("/health", tags=["Health"])
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
 async def health_check():
@@ -76,9 +82,9 @@ async def health_check():
         "redis_connected": redis_alive
     }
 
-# Mount Versioned API Routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=True)
+
