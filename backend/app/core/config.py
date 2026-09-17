@@ -26,6 +26,29 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/resumeiq"
     SYNC_DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/resumeiq"
 
+    @property
+    def async_database_url(self) -> str:
+        """Normalize DATABASE_URL for SQLAlchemy async engine.
+        Railway provides postgres:// or postgresql:// — we need postgresql+asyncpg://
+        """
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @property
+    def sync_database_url(self) -> str:
+        """Normalize SYNC_DATABASE_URL for SQLAlchemy sync engine.
+        Strips asyncpg driver if present.
+        """
+        url = self.SYNC_DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
+        return url
+
     # Redis & Celery (defaults to in-memory — set these only if you have Redis)
     REDIS_URL: str = "memory://"
     CELERY_BROKER_URL: str = "memory://"
