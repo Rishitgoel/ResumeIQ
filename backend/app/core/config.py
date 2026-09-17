@@ -26,10 +26,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/resumeiq"
     SYNC_DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/resumeiq"
 
-    # Redis & Celery
-    REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    # Redis & Celery (defaults to in-memory — set these only if you have Redis)
+    REDIS_URL: str = "memory://"
+    CELERY_BROKER_URL: str = "memory://"
+    CELERY_RESULT_BACKEND: str = "cache+memory://"
 
     # Storage
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")

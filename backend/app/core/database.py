@@ -7,12 +7,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Primary Async Engine (FastAPI)
+is_async_sqlite = "sqlite" in settings.DATABASE_URL
+async_connect_args = {"check_same_thread": False} if is_async_sqlite else {}
+
 async_engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
     future=True,
-    pool_pre_ping=True,
+    pool_pre_ping=not is_async_sqlite,
+    connect_args=async_connect_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -23,11 +26,14 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
-# Synchronous Engine (for Celery workers, background scripts, and Alembic)
+is_sync_sqlite = "sqlite" in settings.SYNC_DATABASE_URL
+sync_connect_args = {"check_same_thread": False} if is_sync_sqlite else {}
+
 sync_engine = create_engine(
     settings.SYNC_DATABASE_URL,
     echo=False,
-    pool_pre_ping=True,
+    pool_pre_ping=not is_sync_sqlite,
+    connect_args=sync_connect_args,
 )
 
 SyncSessionLocal = sessionmaker(

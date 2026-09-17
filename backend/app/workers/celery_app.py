@@ -17,6 +17,8 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=300,        # 5 minutes maximum runtime
     task_soft_time_limit=240,   # 4 minutes soft timeout
-    worker_concurrency=4,
+    worker_concurrency=2,
     worker_prefetch_multiplier=1,
+    # Use in-memory transport when no external broker is configured
+    broker_transport_options={"visibility_timeout": 3600},
 )
