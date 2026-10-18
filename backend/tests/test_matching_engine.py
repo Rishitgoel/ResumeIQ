@@ -92,3 +92,50 @@ def test_suggestion_generator_priorities():
     assert any("SQL" in s["title"] for s in med_suggestions)
     # Experience gap should also be flagged
     assert any("Experience Gap" in s["title"] for s in med_suggestions)
+
+def test_degree_matching_prevent_physics_false_positive():
+    # JD requires Ph.D.
+    # Candidate with Bachelor in Physics should NOT get 100% education score
+    physics_cand_edu = [{"degree": "Bachelor of Science in Physics"}]
+    res_physics = calculate_match_scores(
+        skill_matches=[],
+        resume_experiences=[],
+        resume_projects=[],
+        resume_education=physics_cand_edu,
+        resume_certifications=[],
+        jd_min_exp_years=0,
+        jd_target_degree="Ph.D."
+    )
+    assert res_physics["scores"]["education"] == 80.0
+
+    # Candidate with real Ph.D. should get 100%
+    phd_cand_edu = [{"degree": "Ph.D. in Computer Science"}]
+    res_phd = calculate_match_scores(
+        skill_matches=[],
+        resume_experiences=[],
+        resume_projects=[],
+        resume_education=phd_cand_edu,
+        resume_certifications=[],
+        jd_min_exp_years=0,
+        jd_target_degree="Ph.D."
+    )
+    assert res_phd["scores"]["education"] == 100.0
+
+def test_scoring_engine_custom_weights_resilience():
+    # Partial weights and None values should not crash or raise KeyError/TypeError
+    custom_weights = {
+        "required_skills": 0.5,
+        "preferred_skills": None,
+        # missing other keys
+    }
+    res = calculate_match_scores(
+        skill_matches=[{"skill_name": "Python", "requirement_type": "REQUIRED_SKILL", "match_status": "EXACT_MATCH", "resume_evidence_level": "STRONG", "similarity_score": 1.0}],
+        resume_experiences=[],
+        resume_projects=[],
+        resume_education=[],
+        resume_certifications=[],
+        jd_min_exp_years=0,
+        jd_target_degree=None,
+        custom_weights=custom_weights
+    )
+    assert 0 <= res["scores"]["overall"] <= 100

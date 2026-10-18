@@ -8,35 +8,59 @@ import { Button } from "@/components/ui/Button";
 interface HeaderProps {
   title: string;
   description?: string;
+  badge?: string;
   actionText?: string;
   actionHref?: string;
+  actionIcon?: React.ReactNode;
   onActionClick?: () => void;
+  children?: React.ReactNode;
 }
 
-export function Header({ title, description, actionText, actionHref, onActionClick }: HeaderProps) {
+export function Header({
+  title,
+  description,
+  badge,
+  actionText,
+  actionHref,
+  actionIcon,
+  onActionClick,
+  children,
+}: HeaderProps) {
   return (
-    <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between">
+    <header className="px-6 lg:px-8 pt-6 pb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
-        {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-2xl lg:text-[26px] font-bold text-slate-900 tracking-tight">{title}</h1>
+          {badge && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+              {badge}
+            </span>
+          )}
+        </div>
+        {description && <p className="text-xs sm:text-sm text-slate-400 mt-1">{description}</p>}
       </div>
 
-      <div className="flex items-center gap-3">
-        {actionText && (
-          actionHref ? (
-            <Link href={actionHref}>
-              <Button size="md" className="shadow-sm">
-                <PlusCircle className="w-4 h-4 mr-2" />
-                {actionText}
-              </Button>
+      <div className="flex items-center gap-3 shrink-0">
+        {children}
+        {actionText &&
+          (actionHref ? (
+            <Link
+              href={actionHref}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+            >
+              {actionIcon || <PlusCircle className="w-4 h-4" />}
+              <span>{actionText}</span>
             </Link>
           ) : (
-            <Button size="md" onClick={onActionClick} className="shadow-sm">
-              <PlusCircle className="w-4 h-4 mr-2" />
-              {actionText}
-            </Button>
-          )
-        )}
+            <button
+              type="button"
+              onClick={onActionClick}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+            >
+              {actionIcon || <PlusCircle className="w-4 h-4" />}
+              <span>{actionText}</span>
+            </button>
+          ))}
       </div>
     </header>
   );

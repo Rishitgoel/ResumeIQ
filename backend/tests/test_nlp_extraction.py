@@ -94,3 +94,35 @@ def test_job_description_parsing():
     assert "Redis" in parsed["preferred_skills"]
     assert parsed["min_experience_years"] == 3.0
     assert "Bachelor" in (parsed["target_degree"] or "")
+
+    # Verify skill categories are properly mapped and not all identical
+    reqs = parsed["requirements"]
+    req_map = {r["canonical_skill"]: r.get("category") for r in reqs if r.get("canonical_skill")}
+    assert req_map.get("Python") == "PROGRAMMING_LANGUAGES"
+    assert req_map.get("FastAPI") == "FRAMEWORKS"
+    assert req_map.get("PostgreSQL") == "DATABASES"
+    assert req_map.get("Docker") == "CLOUD_DEVOPS"
+    assert req_map.get("Redis") == "DATABASES"
+
+def test_education_extraction_10_point_scale():
+    edu_text = """
+    Indian Institute of Technology
+    Bachelor of Technology in Computer Science, CGPA: 8.7/10
+    2019 - 2023
+    """
+    edu_list = extract_education(edu_text)
+    assert len(edu_list) >= 1
+    assert edu_list[0]["gpa"] == 8.7
+    assert edu_list[0]["max_gpa"] == 10.0
+
+def test_experience_company_extraction_with_date_lines():
+    exp_text = """
+    Software Engineer
+    Jan 2021 - Present
+    Acme Corp
+    • Designed core backend microservices.
+    """
+    exps = extract_experiences(exp_text)
+    assert len(exps) == 1
+    assert exps[0]["company_name"] == "Acme Corp"
+    assert exps[0]["job_title"] == "Software Engineer"

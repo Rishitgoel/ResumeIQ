@@ -154,6 +154,12 @@ class AnalysisService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
         return analysis
 
+    async def delete_analysis(self, analysis_id: str, user_id: str) -> bool:
+        analysis = await self.analysis_repo.get_by_id(analysis_id, user_id)
+        if not analysis:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+        return await self.analysis_repo.delete(analysis_id, user_id)
+
     async def list_analyses(
         self,
         user_id: str,

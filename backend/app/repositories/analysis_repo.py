@@ -6,6 +6,7 @@ from app.models.analysis import Analysis, AnalysisSkillMatch, AnalysisSuggestion
 from app.models.resume import Resume
 from app.models.job import JobDescription
 from app.models.skill import Skill
+from app.nlp.taxonomy import get_skill_category
 
 class AnalysisRepository:
     def __init__(self, db: AsyncSession):
@@ -87,6 +88,16 @@ class AnalysisRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def delete(self, analysis_id: str, user_id: str) -> bool:
+        stmt = select(Analysis).where(Analysis.id == analysis_id, Analysis.user_id == user_id)
+        result = await self.db.execute(stmt)
+        analysis = result.scalar_one_or_none()
+        if not analysis:
+            return False
+        await self.db.delete(analysis)
+        await self.db.commit()
+        return True
+
     async def list_by_user(
         self,
         user_id: str,
@@ -153,7 +164,7 @@ class AnalysisRepository:
         )
         missing_res = await self.db.execute(missing_skills_stmt)
         top_missing = [
-            {"skill_name": row[0], "frequency": row[1], "category": "TECHNICAL"}
+            {"skill_name": row[0], "frequency": row[1], "category": get_skill_category(row[0])}
             for row in missing_res.all()
         ]
 

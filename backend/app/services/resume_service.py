@@ -33,7 +33,10 @@ class ResumeService:
     ) -> Resume:
         """Validate, store, and execute parsing pipeline for uploaded resume PDF."""
         # 1. Validate MIME type and file extension
-        if not file.filename.lower().endswith(".pdf") and file.content_type != "application/pdf":
+        filename = (file.filename or "").strip()
+        is_pdf_ext = filename.lower().endswith(".pdf")
+        is_pdf_mime = bool(file.content_type and "pdf" in file.content_type.lower())
+        if not is_pdf_ext and not is_pdf_mime:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid file format. Only PDF files (.pdf) are permitted."
@@ -62,7 +65,11 @@ class ResumeService:
         with open(file_path, "wb") as f:
             f.write(contents)
 
-        resume_title = title.strip() if title else file.filename.replace(".pdf", "")
+        if title and title.strip():
+            resume_title = title.strip()
+        else:
+            fname = file.filename or "Resume"
+            resume_title = os.path.splitext(fname)[0]
 
         # 5. Create initial record in UPLOADED state
         resume = await self.repo.create(

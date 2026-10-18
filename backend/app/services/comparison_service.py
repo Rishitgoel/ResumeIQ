@@ -33,6 +33,14 @@ class ComparisonService:
             required_skills = parsed_jd.get("required_skills", [])
             preferred_skills = parsed_jd.get("preferred_skills", [])
 
+        # Deduplicate resume IDs while preserving order
+        unique_resume_ids = list(dict.fromkeys(comp_in.resume_ids))
+        if len(unique_resume_ids) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least 2 unique resumes are required for comparison."
+            )
+
         candidates: List[ResumeComparisonItem] = []
         coverage_matrix: Dict[str, Dict[str, bool]] = {
             s: {} for s in (required_skills + preferred_skills)
@@ -40,7 +48,7 @@ class ComparisonService:
 
         evaluated_candidates = []
 
-        for r_id in comp_in.resume_ids:
+        for r_id in unique_resume_ids:
             resume = await self.resume_repo.get_by_id(r_id, user_id)
             if not resume:
                 continue
@@ -67,10 +75,15 @@ class ComparisonService:
                     "years_duration": exp.years_duration
                 })
 
-            resume_proj_data = [
-                {"name": p.name, "technologies": p.technologies or []}
-                for p in resume.projects
-            ]
+            resume_proj_data = []
+            for p in resume.projects:
+                b_list = p.bullet_points or []
+                resume_bullets.extend(b_list)
+                resume_proj_data.append({
+                    "name": p.name,
+                    "bullet_points": b_list,
+                    "technologies": p.technologies or []
+                })
             resume_edu_data = [{"degree": e.degree} for e in resume.education]
             resume_cert_data = [{"name": c.name} for c in resume.certifications]
 
@@ -120,6 +133,12 @@ class ComparisonService:
                 "missing_skills": missing_s,
                 "experience_years": round(total_years, 1),
             })
+
+        if len(evaluated_candidates) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least 2 valid resumes belonging to the user are required for comparison."
+            )
 
         # Rank candidates by overall score descending
         evaluated_candidates.sort(key=lambda c: c["overall_score"], reverse=True)

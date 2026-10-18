@@ -116,3 +116,41 @@ async def test_multi_resume_comparison(client: AsyncClient, auth_headers: dict):
     # Verify rankings 1 and 2 exist
     ranks = [c["rank"] for c in comp_data["candidates"]]
     assert 1 in ranks and 2 in ranks
+
+@pytest.mark.asyncio
+async def test_delete_analysis(client: AsyncClient, auth_headers: dict):
+    # 1. Setup Resume and JD
+    pdf_bytes = generate_pdf_bytes(full_name="Alex ToDelete", skills=["Python"])
+    r_id = (await client.post("/api/v1/resumes/upload", headers=auth_headers, files={"file": ("alex.pdf", pdf_bytes, "application/pdf")})).json()["id"]
+    jd_id = (await client.post("/api/v1/jobs/", headers=auth_headers, json={"title": "Python Dev", "raw_text": "Requirements: Python"})).json()["id"]
+
+    # 2. Run Analysis
+    a_res = await client.post("/api/v1/analyses/", headers=auth_headers, json={"resume_id": r_id, "job_description_id": jd_id})
+    assert a_res.status_code == 201
+    analysis_id = a_res.json()["id"]
+
+    # 3. Delete Analysis
+    del_res = await client.delete(f"/api/v1/analyses/{analysis_id}", headers=auth_headers)
+    assert del_res.status_code == 204
+
+    # 4. Verify Analysis is gone
+    get_res = await client.get(f"/api/v1/analyses/{analysis_id}", headers=auth_headers)
+    assert get_res.status_code == 404
+
+@pytest.mark.asyncio
+async def test_comparison_validation(client: AsyncClient, auth_headers: dict):
+    pdf = generate_pdf_bytes(full_name="Solo Candidate", skills=["Python"])
+    r1 = (await client.post("/api/v1/resumes/upload", headers=auth_headers, files={"file": ("solo.pdf", pdf, "application/pdf")})).json()["id"]
+    jd_id = (await client.post("/api/v1/jobs/", headers=auth_headers, json={"title": "Dev", "raw_text": "Requirements: Python"})).json()["id"]
+
+    # Duplicate resume IDs (fails business validation in ComparisonService)
+    res_dup = await client.post("/api/v1/analyses/compare", headers=auth_headers, json={"job_description_id": jd_id, "resume_ids": [r1, r1]})
+    assert res_dup.status_code == 400
+
+    # Only 1 resume ID (fails Pydantic min_length=2)
+    res_one = await client.post("/api/v1/analyses/compare", headers=auth_headers, json={"job_description_id": jd_id, "resume_ids": [r1]})
+    assert res_one.status_code == 422
+
+    # Two IDs but one does not exist (fails user ownership / valid resume count)
+    res_nonexistent = await client.post("/api/v1/analyses/compare", headers=auth_headers, json={"job_description_id": jd_id, "resume_ids": [r1, "00000000-0000-0000-0000-000000000000"]})
+    assert res_nonexistent.status_code == 400

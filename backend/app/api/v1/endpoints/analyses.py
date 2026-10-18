@@ -57,6 +57,17 @@ async def get_analysis(
     analysis_service = AnalysisService(db)
     return await analysis_service.get_analysis(analysis_id, current_user.id)
 
+@router.delete("/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_analysis(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete an analysis report."""
+    analysis_service = AnalysisService(db)
+    await analysis_service.delete_analysis(analysis_id, current_user.id)
+    return None
+
 @router.get("/{analysis_id}/skills", response_model=List[AnalysisSkillMatchOut])
 async def get_analysis_skills(
     analysis_id: str,

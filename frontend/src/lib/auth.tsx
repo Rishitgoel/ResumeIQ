@@ -26,8 +26,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const profile = await api.get<User>("/auth/me");
           setUser(profile);
           localStorage.setItem("resumeiq_user", JSON.stringify(profile));
+        } else {
+          setUser(null);
+          localStorage.removeItem("resumeiq_user");
         }
-      } catch (err) {
+      } catch {
         api.removeToken();
         setUser(null);
       } finally {

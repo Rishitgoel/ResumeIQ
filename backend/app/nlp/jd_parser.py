@@ -2,6 +2,7 @@ import re
 from typing import Dict, List, Any
 from app.nlp.text_cleaner import clean_text, extract_bullets
 from app.nlp.skill_extractor import extract_skills
+from app.nlp.taxonomy import get_skill_category
 
 REQUIRED_PATTERNS = [
     r"^requirements",
@@ -132,7 +133,7 @@ def parse_job_description(raw_text: str) -> Dict[str, Any]:
             "canonical_skill": skill,
             "description": f"Proficiency in {skill}",
             "weight": 1.0,
-            "category": req_skills_objs[0]["category"] if req_skills_objs else "OTHER"
+            "category": get_skill_category(skill)
         })
 
     for skill in preferred_skills:
@@ -141,7 +142,7 @@ def parse_job_description(raw_text: str) -> Dict[str, Any]:
             "canonical_skill": skill,
             "description": f"Familiarity or bonus experience with {skill}",
             "weight": 0.5,
-            "category": "OTHER"
+            "category": get_skill_category(skill)
         })
 
     if min_exp_years > 0:

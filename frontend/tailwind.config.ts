@@ -29,6 +29,10 @@ const config: Config = {
           600: "#16a34a",
         }
       },
+      fontFamily: {
+        sans: ["var(--font-plus-jakarta)", "'Plus Jakarta Sans'", "'Google Sans'", "system-ui", "-apple-system", "sans-serif"],
+        handwriting: ["var(--font-caveat)", "'Caveat'", "cursive", "sans-serif"],
+      },
     },
   },
   plugins: [],

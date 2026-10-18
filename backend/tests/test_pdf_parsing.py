@@ -38,3 +38,21 @@ def test_reject_empty_or_scanned_pdf():
     with pytest.raises(PDFParseException) as exc_info:
         extract_text_from_pdf(blank_pdf)
     assert "Scanned or image-only PDF detected" in str(exc_info.value)
+
+def test_reject_encrypted_pdf():
+    from pypdf import PdfWriter, PdfReader
+    import io
+
+    pdf_bytes = generate_pdf_bytes(full_name="Secret Candidate", skills=["Python"])
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+    for page in reader.pages:
+        writer.add_page(page)
+    writer.encrypt("password123")
+    enc_buf = io.BytesIO()
+    writer.write(enc_buf)
+    encrypted_bytes = enc_buf.getvalue()
+
+    with pytest.raises(PDFParseException) as exc_info:
+        extract_text_from_pdf(encrypted_bytes)
+    assert "password protected or encrypted" in str(exc_info.value).lower()

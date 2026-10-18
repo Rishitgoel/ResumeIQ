@@ -25,13 +25,26 @@ def extract_text_from_pdf(file_path_or_bytes: str | bytes) -> Tuple[str, int, Di
     else:
         pdf_bytes = file_path_or_bytes
 
-    # Validate PDF Magic Bytes (%PDF-)
-    if not pdf_bytes.startswith(b"%PDF-"):
+    # Validate PDF Magic Bytes (%PDF-) within first 1024 bytes
+    header_idx = pdf_bytes[:1024].find(b"%PDF-")
+    if header_idx == -1:
         raise PDFParseException("Invalid PDF file: Missing %PDF- header magic bytes.")
+    if header_idx > 0:
+        pdf_bytes = pdf_bytes[header_idx:]
 
     page_count = 0
     extracted_pages = []
     metadata = {}
+
+    # Check for encryption using pypdf
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        if reader.is_encrypted:
+            raise PDFParseException("The uploaded PDF is password protected or encrypted. Please upload an unencrypted document.")
+    except PDFParseException:
+        raise
+    except Exception:
+        pass
 
     # Primary strategy: pdfplumber for layout fidelity
     try:

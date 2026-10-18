@@ -1,5 +1,15 @@
+import re
 from typing import Dict, List, Any, Optional
 from app.core.config import settings
+
+def _has_phd(text: str) -> bool:
+    return bool(re.search(r"\b(?:ph\.?d|doctorate)\b", text, re.IGNORECASE))
+
+def _has_masters(text: str) -> bool:
+    return bool(re.search(r"\b(?:master'?s?|m\.?s\.?|m\.?tech|m\.?ba|m\.?sc)\b", text, re.IGNORECASE))
+
+def _has_bachelors(text: str) -> bool:
+    return bool(re.search(r"\b(?:bachelor'?s?|b\.?s\.?|b\.?tech|b\.?e\.?|b\.?ba|b\.?sc|undergraduate)\b", text, re.IGNORECASE))
 
 def calculate_match_scores(
     skill_matches: List[Dict[str, Any]],
@@ -14,10 +24,26 @@ def calculate_match_scores(
     """
     Calculate transparent, explainable multi-dimensional resume-to-JD match scores.
     """
-    weights = custom_weights or settings.scoring_weights
+    weights = dict(settings.scoring_weights)
+    if custom_weights:
+        for k, v in custom_weights.items():
+            if k in weights and v is not None:
+                try:
+                    weights[k] = max(0.0, float(v))
+                except (ValueError, TypeError):
+                    pass
+
+    # Ensure all required weight keys exist
+    for required_key in ["required_skills", "preferred_skills", "experience", "projects", "education", "other"]:
+        if required_key not in weights or weights[required_key] is None:
+            weights[required_key] = settings.scoring_weights.get(required_key, 0.1)
 
     # Normalize weights so sum is 1.0
-    weight_sum = sum(weights.values()) or 1.0
+    weight_sum = sum(weights.values())
+    if weight_sum <= 0:
+        weights = dict(settings.scoring_weights)
+        weight_sum = sum(weights.values()) or 1.0
+
     norm_weights = {k: v / weight_sum for k, v in weights.items()}
 
     # 1. Required Skills Score
@@ -82,19 +108,25 @@ def calculate_match_scores(
 
     # 5. Education Score
     if resume_education:
-        edu_score = 90.0
         # Check if candidate has degree matching or exceeding JD degree
         highest_degree = " ".join([e.get("degree", "").lower() for e in resume_education])
         if jd_target_degree:
-            jd_deg = jd_target_degree.lower()
-            if "ph" in jd_deg and "ph" in highest_degree:
-                edu_score = 100.0
-            elif "master" in jd_deg and ("master" in highest_degree or "ph" in highest_degree):
-                edu_score = 100.0
-            elif "bachelor" in jd_deg and any(d in highest_degree for d in ["bachelor", "b.", "master", "ph"]):
-                edu_score = 100.0
+            jd_is_phd = _has_phd(jd_target_degree)
+            jd_is_master = _has_masters(jd_target_degree)
+            jd_is_bachelor = _has_bachelors(jd_target_degree)
+
+            cand_phd = _has_phd(highest_degree)
+            cand_master = _has_masters(highest_degree)
+            cand_bachelor = _has_bachelors(highest_degree)
+
+            if jd_is_phd:
+                edu_score = 100.0 if cand_phd else 80.0
+            elif jd_is_master:
+                edu_score = 100.0 if (cand_phd or cand_master) else 80.0
+            elif jd_is_bachelor:
+                edu_score = 100.0 if (cand_phd or cand_master or cand_bachelor) else 80.0
             else:
-                edu_score = 80.0
+                edu_score = 90.0
         else:
             edu_score = 100.0
     else:
@@ -105,12 +137,12 @@ def calculate_match_scores(
 
     # Overall Composite Score
     overall = (
-        norm_weights["required_skills"] * req_score +
-        norm_weights["preferred_skills"] * pref_score +
-        norm_weights["experience"] * exp_score +
-        norm_weights["projects"] * proj_score +
-        norm_weights["education"] * edu_score +
-        norm_weights["other"] * other_score
+        norm_weights.get("required_skills", 0.35) * req_score +
+        norm_weights.get("preferred_skills", 0.15) * pref_score +
+        norm_weights.get("experience", 0.20) * exp_score +
+        norm_weights.get("projects", 0.15) * proj_score +
+        norm_weights.get("education", 0.10) * edu_score +
+        norm_weights.get("other", 0.05) * other_score
     )
     overall_score = round(overall, 1)
 

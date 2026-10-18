@@ -101,12 +101,19 @@ def extract_experiences(section_text: str) -> List[Dict[str, Any]]:
             company = parts[1].strip()
         else:
             title = header_line
-            if len(lines) > 1 and not lines[1].startswith(("•", "-", "*")):
-                company = lines[1]
+            for next_line in lines[1:]:
+                if next_line.startswith(("•", "-", "*")):
+                    break
+                if DATE_RANGE_REGEX.search(next_line):
+                    continue
+                company = next_line
+                break
 
         # Strip any parenthetical dates or metadata like (Jan 2021 - Jan 2024)
         company = re.sub(r"\(.*?\)", "", company).strip()
         title = re.sub(r"\(.*?\)", "", title).strip()
+        if not company or DATE_RANGE_REGEX.search(company):
+            company = "Company"
 
         # Extract bullets and technologies
         bullets = extract_bullets(block)
@@ -204,12 +211,14 @@ def extract_education(section_text: str) -> List[Dict[str, Any]]:
         # Check for GPA
         gpa = None
         max_gpa = 4.0
-        gpa_match = re.search(r"(?:gpa|cgpa)[:\s]*([0-9]\.[0-9]+)(?:\s*/\s*([0-9](?:\.0)?))?", block, re.IGNORECASE)
+        gpa_match = re.search(r"(?:gpa|cgpa)[:\s]*([0-9]{1,2}(?:\.[0-9]+)?)(?:\s*/\s*([0-9]{1,2}(?:\.[0-9]+)?))?", block, re.IGNORECASE)
         if gpa_match:
             try:
                 gpa = float(gpa_match.group(1))
                 if gpa_match.group(2):
                     max_gpa = float(gpa_match.group(2))
+                elif gpa > 4.0:
+                    max_gpa = 10.0
             except ValueError:
                 pass
 
